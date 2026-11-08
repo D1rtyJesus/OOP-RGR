@@ -1,49 +1,56 @@
 #include "StepAccount.h"
 
-StepAccount::StepAccount(int stepIndex, PanelDescriptor descriptor, RegistrationData& data)
-    : WizardStep(stepIndex, std::move(descriptor), data) {
-    if (m_descriptor.fields.empty()) {
-        m_descriptor = DefaultDescriptor();
+StepAccount::StepAccount(int stepIndex, PanelConfig cfg, RegistrationData& data)
+    : WizardStep(stepIndex, std::move(cfg), data) {
+    if (this->cfg.fields.empty()) {
+        this->cfg = MakeDefault();
     }
 }
 
-PanelDescriptor StepAccount::DefaultDescriptor() {
-    PanelDescriptor pd;
-    pd.stepType = L"ACCOUNT";
-    pd.title = L"Облікові дані та безпека";
-    pd.fields = {
+PanelConfig StepAccount::MakeDefault() {
+    PanelConfig cfg;
+    cfg.type = L"ACCOUNT";
+    cfg.title = L"Облікові дані та безпека";
+    cfg.fields = {
         { L"email",        L"Електронна пошта (Email):", L"", false },
         { L"login",        L"Логін користувача:",        L"", false },
         { L"password",     L"Пароль (мін. 6 символів):", L"", true  },
         { L"pass_confirm", L"Підтвердження пароля:",     L"", true  }
     };
-    return pd;
+    return cfg;
 }
 
-bool StepAccount::Validate(std::wstring& outError) {
-    if (!WizardStep::Validate(outError)) return false;
+bool StepAccount::Validate(std::wstring& err) {
+    if (!WizardStep::Validate(err)) return false;
 
-    std::wstring email = GetFieldByKey(L"email");
+    std::wstring email = GetByKey(L"email");
     if (!email.empty()) {
-        size_t at = email.find(L'@');
-        if (at == std::wstring::npos || at == 0 || email.find(L'.', at) == std::wstring::npos) {
-            outError = L"Некоректний формат електронної пошти (очікується user@domain).";
-            FocusFieldByKey(L"email");
+        size_t a = email.find(L'@');
+        if (a == std::wstring::npos || a == 0 || email.find(L'.', a) == std::wstring::npos) {
+            err = L"Некоректний формат електронної пошти (user@domain).";
+            FocusKey(L"email");
             return false;
         }
     }
 
-    std::wstring pass = GetFieldByKey(L"password");
-    if (!pass.empty() && pass.size() < 6) {
-        outError = L"Пароль має містити щонайменше 6 символів.";
-        FocusFieldByKey(L"password");
+    std::wstring login = GetByKey(L"login");
+    if (!login.empty() && login.size() < 3) {
+        err = L"Логін має містити не менше 3 символів.";
+        FocusKey(L"login");
         return false;
     }
 
-    std::wstring confirm = GetFieldByKey(L"pass_confirm");
-    if (!confirm.empty() && pass != confirm) {
-        outError = L"Пароль та підтвердження пароля не збігаються.";
-        FocusFieldByKey(L"pass_confirm");
+    std::wstring pass = GetByKey(L"password");
+    if (!pass.empty() && pass.size() < 6) {
+        err = L"Пароль має містити не менше 6 символів.";
+        FocusKey(L"password");
+        return false;
+    }
+
+    std::wstring str1 = GetByKey(L"pass_confirm");
+    if (!str1.empty() && pass != str1) {
+        err = L"Пароль та підтвердження пароля не збігаються.";
+        FocusKey(L"pass_confirm");
         return false;
     }
     return true;

@@ -1,68 +1,68 @@
 #include "StepConfirm.h"
 
-StepConfirm::StepConfirm(int stepIndex, PanelDescriptor descriptor, RegistrationData& data, bool showPreview)
-    : WizardStep(stepIndex, std::move(descriptor), data), m_showPreview(showPreview) {
-    if (m_descriptor.fields.empty()) {
-        m_descriptor = showPreview ? DefaultConfirmDescriptor() : DefaultProfileDescriptor();
+StepConfirm::StepConfirm(int stepIndex, PanelConfig cfg, RegistrationData& data, bool isFinal)
+    : WizardStep(stepIndex, std::move(cfg), data), isFinal(isFinal) {
+    if (this->cfg.fields.empty()) {
+        this->cfg = isFinal ? MakeConfirmDefault() : MakeProfileDefault();
     }
 }
 
-PanelDescriptor StepConfirm::DefaultProfileDescriptor() {
-    PanelDescriptor pd;
-    pd.stepType = L"CUSTOM";
-    pd.title = L"Налаштування профілю та навчання";
-    pd.fields = {
+PanelConfig StepConfirm::MakeProfileDefault() {
+    PanelConfig cfg;
+    cfg.type = L"CUSTOM";
+    cfg.title = L"Налаштування профілю та навчання";
+    cfg.fields = {
         { L"faculty",   L"Факультет / Інститут:",   L"ФІОТ", false },
         { L"group",     L"Навчальна група:",        L"ІП-31", false },
         { L"specialty", L"Спеціалізація / Напрям:", L"Програмна інженерія", false }
     };
-    return pd;
+    return cfg;
 }
 
-PanelDescriptor StepConfirm::DefaultConfirmDescriptor() {
-    PanelDescriptor pd;
-    pd.stepType = L"CONFIRM";
-    pd.title = L"Підтвердження та перевірка анкети";
-    pd.fields = {
+PanelConfig StepConfirm::MakeConfirmDefault() {
+    PanelConfig cfg;
+    cfg.type = L"CONFIRM";
+    cfg.title = L"Підтвердження та перевірка анкети";
+    cfg.fields = {
         { L"consent", L"Підтвердження згоди (введіть ТАК):", L"ТАК", false },
         { L"comment", L"Примітка користувача:",              L"Дані вірні", false }
     };
-    return pd;
+    return cfg;
 }
 
-void StepConfirm::BuildControls() {
-    WizardStep::BuildControls();
-    if (!m_showPreview) return;
+void StepConfirm::CreateControls() {
+    WizardStep::CreateControls();
+    if (!isFinal) return;
 
     RECT rc = {};
-    GetClientRect(m_hPanel, &rc);
+    GetClientRect(hWnd, &rc);
     int w = (rc.right - rc.left) - 24;
-    int topY = 12 + static_cast<int>(m_controls.size()) * 52 + 6;
-    int restH = (rc.bottom - rc.top) - topY - 10;
+    int y = 12 + static_cast<int>(ctrls.size()) * 52 + 6;
+    int h = (rc.bottom - rc.top) - y - 10;
 
-    if (restH >= 70) {
-        m_hPreviewLabel = CreateWindowExW(
+    if (h >= 70) {
+        hLbl = CreateWindowExW(
             0, L"STATIC", L"Попередній перегляд введених даних:",
             WS_CHILD | WS_VISIBLE,
-            12, topY, w, 18,
-            m_hPanel, nullptr, m_hInst, nullptr
+            12, y, w, 18,
+            hWnd, nullptr, hInst, nullptr
         );
-        SendMessageW(m_hPreviewLabel, WM_SETFONT, reinterpret_cast<WPARAM>(m_hFont), TRUE);
+        SendMessageW(hLbl, WM_SETFONT, reinterpret_cast<WPARAM>(hFont), TRUE);
 
-        m_hPreviewEdit = CreateWindowExW(
+        hBox = CreateWindowExW(
             WS_EX_CLIENTEDGE, L"EDIT", L"",
             WS_CHILD | WS_VISIBLE | WS_VSCROLL | ES_MULTILINE | ES_AUTOVSCROLL | ES_READONLY,
-            12, topY + 20, w, restH - 22,
-            m_hPanel, nullptr, m_hInst, nullptr
+            12, y + 20, w, h - 22,
+            hWnd, nullptr, hInst, nullptr
         );
-        SendMessageW(m_hPreviewEdit, WM_SETFONT, reinterpret_cast<WPARAM>(m_hFont), TRUE);
+        SendMessageW(hBox, WM_SETFONT, reinterpret_cast<WPARAM>(hFont), TRUE);
     }
 }
 
-void StepConfirm::OnEnterStep() {
-    WizardStep::OnEnterStep();
-    if (m_showPreview && m_hPreviewEdit) {
-        std::wstring summary = m_data.FormatSummaryReport();
-        SetWindowTextW(m_hPreviewEdit, summary.c_str());
+void StepConfirm::OnShow() {
+    WizardStep::OnShow();
+    if (isFinal && hBox) {
+        std::wstring buf = data.BuildReport();
+        SetWindowTextW(hBox, buf.c_str());
     }
 }

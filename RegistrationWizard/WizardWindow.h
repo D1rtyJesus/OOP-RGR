@@ -10,41 +10,37 @@ public:
     explicit WizardWindow(HINSTANCE hInst);
     ~WizardWindow() = default;
 
-    WizardWindow(const WizardWindow&) = delete;
-    WizardWindow& operator=(const WizardWindow&) = delete;
-
-    bool Initialize(int nCmdShow);
-    int RunMessageLoop();
+    bool Init(int cmdShow);
+    int Run();
 
 private:
     bool LoadConfig(const std::wstring& path);
     void WriteDefaultConfig(const std::wstring& path) const;
-    void CreateStepObjects();
+    void BuildSteps();
 
-    void SetActiveStep(int index);
+    void SetStep(int idx);
     void UpdateButtons();
-    void OnNextClicked();
-    void OnBackClicked();
-    void OnCancelClicked();
+    void OnNext();
+    void OnBack();
 
-    bool SaveResultFile(const std::wstring& path) const;
-    void DisplayResultFile(const std::wstring& path);
+    bool SaveResult(const std::wstring& path) const;
+    void ShowResult(const std::wstring& path);
 
-    static LRESULT CALLBACK MainWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
-    LRESULT HandleMessage(UINT msg, WPARAM wParam, LPARAM lParam);
+    static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wp, LPARAM lp);
+    LRESULT OnMsg(UINT msg, WPARAM wp, LPARAM lp);
 
-    HINSTANCE m_hInst = nullptr;
-    HWND m_hWnd = nullptr;
-    HWND m_hHeaderLabel = nullptr;
-    HWND m_hBtnBack = nullptr;
-    HWND m_hBtnNext = nullptr;
-    HWND m_hBtnCancel = nullptr;
-    HWND m_hResultEdit = nullptr;
-    HFONT m_hFont = nullptr;
+    HINSTANCE hInst = nullptr;
+    HWND hWnd = nullptr;
+    HWND hTitle = nullptr;
+    HWND hBack = nullptr;
+    HWND hNext = nullptr;
+    HWND hCancel = nullptr;
+    HWND hResult = nullptr;
+    HFONT hFont = nullptr;
 
-    RegistrationData m_data;
-    std::vector<PanelDescriptor> m_configs;
-    std::vector<std::unique_ptr<WizardStep>> m_steps;
-    int m_currentIndex = 0;
-    bool m_finished = false;
+    RegistrationData data;
+    std::vector<PanelConfig> configs;
+    std::vector<std::unique_ptr<WizardStep>> steps;
+    int stepIndex = 0;
+    bool done = false;
 };

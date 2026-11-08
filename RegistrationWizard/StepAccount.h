@@ -3,8 +3,8 @@
 
 class StepAccount : public WizardStep {
 public:
-    StepAccount(int stepIndex, PanelDescriptor descriptor, RegistrationData& data);
-    std::wstring GetStepType() const override { return L"ACCOUNT"; }
-    bool Validate(std::wstring& outError) override;
-    static PanelDescriptor DefaultDescriptor();
+    StepAccount(int stepIndex, PanelConfig cfg, RegistrationData& data);
+    std::wstring GetType() const override { return L"ACCOUNT"; }
+    bool Validate(std::wstring& err) override;
+    static PanelConfig MakeDefault();
 };

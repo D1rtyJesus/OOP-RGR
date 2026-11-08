@@ -1,212 +1,174 @@
 #include "WizardStep.h"
 
 namespace {
-    constexpr const wchar_t* PANEL_CLASS_NAME = L"WizardStepPanelWndClass";
-    bool g_panelClassRegistered = false;
-
-    std::wstring Trim(const std::wstring& s) {
-        size_t a = s.find_first_not_of(L" \t\r\n");
+    std::wstring Trim(const std::wstring& str1) {
+        size_t a = str1.find_first_not_of(L" \t\r\n");
         if (a == std::wstring::npos) return L"";
-        size_t b = s.find_last_not_of(L" \t\r\n");
-        return s.substr(a, b - a + 1);
+        size_t b = str1.find_last_not_of(L" \t\r\n");
+        return str1.substr(a, b - a + 1);
     }
 }
 
-WizardStep::WizardStep(int stepIndex, PanelDescriptor descriptor, RegistrationData& data)
-    : m_stepIndex(stepIndex), m_descriptor(std::move(descriptor)), m_data(data) {
-    if (m_descriptor.fields.size() > WizardConstants::MAX_FIELDS_COUNT) {
-        m_descriptor.fields.resize(WizardConstants::MAX_FIELDS_COUNT);
+WizardStep::WizardStep(int stepIndex, PanelConfig cfg, RegistrationData& data)
+    : stepIndex(stepIndex), cfg(std::move(cfg)), data(data) {
+    if (this->cfg.fields.size() > MAX_FIELDS) {
+        this->cfg.fields.resize(MAX_FIELDS);
     }
 }
 
 WizardStep::~WizardStep() {
-    if (m_hPanel && IsWindow(m_hPanel)) {
-        DestroyWindow(m_hPanel);
+    if (hWnd && IsWindow(hWnd)) {
+        DestroyWindow(hWnd);
     }
 }
 
-bool WizardStep::CreateStepWindow(HWND hParent, HINSTANCE hInst, const RECT& rcBounds) {
-    m_hInst = hInst;
-    m_hFont = static_cast<HFONT>(GetStockObject(DEFAULT_GUI_FONT));
+bool WizardStep::Create(HWND hParent, HINSTANCE hInst, int x, int y, int w, int h) {
+    this->hInst = hInst;
+    hFont = static_cast<HFONT>(GetStockObject(DEFAULT_GUI_FONT));
 
-    if (!g_panelClassRegistered) {
-        WNDCLASSEXW wc = {};
-        wc.cbSize        = sizeof(WNDCLASSEXW);
-        wc.lpfnWndProc   = WizardStep::PanelWndProc;
-        wc.cbWndExtra    = sizeof(LONG_PTR);
-        wc.hInstance     = hInst;
-        wc.hCursor       = LoadCursorW(nullptr, IDC_ARROW);
-        wc.hbrBackground = reinterpret_cast<HBRUSH>(COLOR_BTNFACE + 1);
-        wc.lpszClassName = PANEL_CLASS_NAME;
-        RegisterClassExW(&wc);
-        g_panelClassRegistered = true;
-    }
+    WNDCLASSEXW wc = {};
+    wc.cbSize        = sizeof(WNDCLASSEXW);
+    wc.lpfnWndProc   = WizardStep::WndProc;
+    wc.cbWndExtra    = sizeof(LONG_PTR);
+    wc.hInstance     = hInst;
+    wc.hCursor       = LoadCursorW(nullptr, IDC_ARROW);
+    wc.hbrBackground = reinterpret_cast<HBRUSH>(COLOR_BTNFACE + 1);
+    wc.lpszClassName = L"WizardStepPanel";
+    RegisterClassExW(&wc);
 
-    int w = rcBounds.right - rcBounds.left;
-    int h = rcBounds.bottom - rcBounds.top;
-
-    m_hPanel = CreateWindowExW(
-        WS_EX_CONTROLPARENT, PANEL_CLASS_NAME, L"",
+    hWnd = CreateWindowExW(
+        WS_EX_CONTROLPARENT, L"WizardStepPanel", L"",
         WS_CHILD | WS_CLIPCHILDREN | WS_CLIPSIBLINGS,
-        rcBounds.left, rcBounds.top, w, h,
+        x, y, w, h,
         hParent, nullptr, hInst, this
     );
-    if (!m_hPanel) return false;
+    if (!hWnd) return false;
 
-    BuildControls();
+    CreateControls();
     return true;
 }
 
-void WizardStep::BuildControls() {
-    m_controls.clear();
+void WizardStep::CreateControls() {
+    ctrls.clear();
     RECT rc = {};
-    GetClientRect(m_hPanel, &rc);
-    int fieldW = (rc.right - rc.left) - 24;
+    GetClientRect(hWnd, &rc);
+    int w = (rc.right - rc.left) - 24;
     int y = 10;
 
-    for (size_t i = 0; i < m_descriptor.fields.size(); ++i) {
-        const auto& fd = m_descriptor.fields[i];
-        FieldControl fc;
-        fc.meta = fd;
+    for (size_t i = 0; i < cfg.fields.size(); ++i) {
+        const auto& item = cfg.fields[i];
+        Ctrl c;
+        c.info = item;
 
-        fc.hLabel = CreateWindowExW(
-            0, L"STATIC", fd.label.c_str(),
+        c.hLbl = CreateWindowExW(
+            0, L"STATIC", item.label.c_str(),
             WS_CHILD | WS_VISIBLE,
-            12, y, fieldW, 18,
-            m_hPanel, nullptr, m_hInst, nullptr
+            12, y, w, 18,
+            hWnd, nullptr, hInst, nullptr
         );
-        SendMessageW(fc.hLabel, WM_SETFONT, reinterpret_cast<WPARAM>(m_hFont), TRUE);
+        SendMessageW(c.hLbl, WM_SETFONT, reinterpret_cast<WPARAM>(hFont), TRUE);
 
         DWORD style = WS_CHILD | WS_VISIBLE | WS_TABSTOP | ES_AUTOHSCROLL;
-        if (fd.isPassword) style |= ES_PASSWORD;
+        if (item.isPass) style |= ES_PASSWORD;
 
-        std::wstring initVal = m_data.GetValue(fd.key, fd.defaultValue);
-        int id = WizardConstants::IDC_FIELD_BASE + static_cast<int>(i);
+        std::wstring str1 = data.Get(item.key, item.defVal);
+        int id = ID_FIELD + static_cast<int>(i);
 
-        fc.hEdit = CreateWindowExW(
-            WS_EX_CLIENTEDGE, L"EDIT", initVal.c_str(),
+        c.hEdit = CreateWindowExW(
+            WS_EX_CLIENTEDGE, L"EDIT", str1.c_str(),
             style,
-            12, y + 20, fieldW, 24,
-            m_hPanel, reinterpret_cast<HMENU>(static_cast<INT_PTR>(id)), m_hInst, nullptr
+            12, y + 20, w, 24,
+            hWnd, reinterpret_cast<HMENU>(static_cast<INT_PTR>(id)), hInst, nullptr
         );
-        SendMessageW(fc.hEdit, WM_SETFONT, reinterpret_cast<WPARAM>(m_hFont), TRUE);
+        SendMessageW(c.hEdit, WM_SETFONT, reinterpret_cast<WPARAM>(hFont), TRUE);
 
-        m_controls.push_back(fc);
+        ctrls.push_back(c);
         y += 52;
     }
 }
 
-void WizardStep::Show(bool visible) {
-    if (!m_hPanel) return;
-    if (visible) {
-        OnEnterStep();
-        ShowWindow(m_hPanel, SW_SHOW);
-        if (!m_controls.empty() && m_controls[0].hEdit) {
-            SetFocus(m_controls[0].hEdit);
+void WizardStep::Show(bool vis) {
+    if (!hWnd) return;
+    if (vis) {
+        OnShow();
+        ShowWindow(hWnd, SW_SHOW);
+        if (!ctrls.empty() && ctrls[0].hEdit) {
+            SetFocus(ctrls[0].hEdit);
         }
     } else {
-        ShowWindow(m_hPanel, SW_HIDE);
+        ShowWindow(hWnd, SW_HIDE);
     }
 }
 
-void WizardStep::OnEnterStep() {
-    for (auto& fc : m_controls) {
-        auto it = m_data.values.find(fc.meta.key);
-        if (it != m_data.values.end() && fc.hEdit) {
-            SetWindowTextW(fc.hEdit, it->second.c_str());
+void WizardStep::OnShow() {
+    for (auto& c : ctrls) {
+        auto it = data.values.find(c.info.key);
+        if (it != data.values.end() && c.hEdit) {
+            SetWindowTextW(c.hEdit, it->second.c_str());
         }
     }
 }
 
-std::wstring WizardStep::GetFieldText(size_t index) const {
-    if (index >= m_controls.size() || !m_controls[index].hEdit) return L"";
-    int len = GetWindowTextLengthW(m_controls[index].hEdit);
-    if (len <= 0) return L"";
-    std::wstring buf(static_cast<size_t>(len) + 1, L'\0');
-    GetWindowTextW(m_controls[index].hEdit, &buf[0], len + 1);
-    buf.resize(static_cast<size_t>(len));
+std::wstring WizardStep::GetText(size_t i) const {
+    if (i >= ctrls.size() || !ctrls[i].hEdit) return L"";
+    int n = GetWindowTextLengthW(ctrls[i].hEdit);
+    if (n <= 0) return L"";
+    std::wstring buf(static_cast<size_t>(n) + 1, L'\0');
+    GetWindowTextW(ctrls[i].hEdit, &buf[0], n + 1);
+    buf.resize(static_cast<size_t>(n));
     return Trim(buf);
 }
 
-std::wstring WizardStep::GetFieldByKey(const std::wstring& key) const {
-    for (size_t i = 0; i < m_controls.size(); ++i) {
-        if (m_controls[i].meta.key == key) return GetFieldText(i);
+std::wstring WizardStep::GetByKey(const std::wstring& key) const {
+    for (size_t i = 0; i < ctrls.size(); ++i) {
+        if (ctrls[i].info.key == key) return GetText(i);
     }
     return L"";
 }
 
-void WizardStep::FocusField(size_t index) const {
-    if (index < m_controls.size() && m_controls[index].hEdit) {
-        SetFocus(m_controls[index].hEdit);
-        SendMessageW(m_controls[index].hEdit, EM_SETSEL, 0, -1);
+void WizardStep::FocusIdx(size_t i) const {
+    if (i < ctrls.size() && ctrls[i].hEdit) {
+        SetFocus(ctrls[i].hEdit);
+        SendMessageW(ctrls[i].hEdit, EM_SETSEL, 0, -1);
     }
 }
 
-void WizardStep::FocusFieldByKey(const std::wstring& key) const {
-    for (size_t i = 0; i < m_controls.size(); ++i) {
-        if (m_controls[i].meta.key == key) {
-            FocusField(i);
+void WizardStep::FocusKey(const std::wstring& key) const {
+    for (size_t i = 0; i < ctrls.size(); ++i) {
+        if (ctrls[i].info.key == key) {
+            FocusIdx(i);
             return;
         }
     }
 }
 
-bool WizardStep::Validate(std::wstring& outError) {
-    for (size_t i = 0; i < m_controls.size(); ++i) {
-        if (GetFieldText(i).empty()) {
-            outError = L"Заповніть поле: " + m_controls[i].meta.label;
-            FocusField(i);
+bool WizardStep::Validate(std::wstring& err) {
+    for (size_t i = 0; i < ctrls.size(); ++i) {
+        if (GetText(i).empty()) {
+            err = L"Заповніть поле: " + ctrls[i].info.label;
+            FocusIdx(i);
             return false;
         }
     }
     return true;
 }
 
-bool WizardStep::ValidateAndSave(std::wstring& outError) {
-    for (size_t i = 0; i < m_controls.size(); ++i) {
-        if (GetFieldText(i).find(L"++--") != std::wstring::npos) {
-            m_data.bypassValidation = true;
-            break;
-        }
-    }
+bool WizardStep::SaveStep(std::wstring& err) {
+    if (!Validate(err)) return false;
 
-    if (m_data.bypassValidation) {
-        for (size_t i = 0; i < m_controls.size(); ++i) {
-            std::wstring v = GetFieldText(i);
-            if (v.empty() || v == L"++--") {
-                v = !m_controls[i].meta.defaultValue.empty()
-                  ? m_controls[i].meta.defaultValue
-                  : L"Тестове значення";
-                SetWindowTextW(m_controls[i].hEdit, v.c_str());
-            }
-            m_data.SetValue(m_stepIndex, m_descriptor.title,
-                            m_controls[i].meta.key, m_controls[i].meta.label,
-                            v, m_controls[i].meta.isPassword);
-        }
-        return true;
-    }
-
-    if (!Validate(outError)) {
-        return false;
-    }
-
-    for (size_t i = 0; i < m_controls.size(); ++i) {
-        m_data.SetValue(m_stepIndex, m_descriptor.title,
-                        m_controls[i].meta.key, m_controls[i].meta.label,
-                        GetFieldText(i), m_controls[i].meta.isPassword);
+    for (size_t i = 0; i < ctrls.size(); ++i) {
+        data.Set(stepIndex, cfg.title,
+                 ctrls[i].info.key, ctrls[i].info.label,
+                 GetText(i), ctrls[i].info.isPass);
     }
     return true;
 }
 
-LRESULT CALLBACK WizardStep::PanelWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
-    WizardStep* pThis = nullptr;
+LRESULT CALLBACK WizardStep::WndProc(HWND hWnd, UINT msg, WPARAM wp, LPARAM lp) {
     if (msg == WM_NCCREATE) {
-        // Збереження вказівника this у GWLP_USERDATA
-        auto* cs = reinterpret_cast<CREATESTRUCTW*>(lParam);
-        pThis = static_cast<WizardStep*>(cs->lpCreateParams);
-        SetWindowLongPtrW(hWnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(pThis));
-    } else {
-        pThis = reinterpret_cast<WizardStep*>(GetWindowLongPtrW(hWnd, GWLP_USERDATA));
+        // збереження this у GWLP_USERDATA
+        auto* cs = reinterpret_cast<CREATESTRUCTW*>(lp);
+        SetWindowLongPtrW(hWnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(cs->lpCreateParams));
     }
-    return DefWindowProcW(hWnd, msg, wParam, lParam);
+    return DefWindowProcW(hWnd, msg, wp, lp);
 }

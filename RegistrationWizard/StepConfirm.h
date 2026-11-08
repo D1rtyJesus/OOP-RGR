@@ -3,17 +3,17 @@
 
 class StepConfirm : public WizardStep {
 public:
-    StepConfirm(int stepIndex, PanelDescriptor descriptor, RegistrationData& data, bool showPreview = true);
-    std::wstring GetStepType() const override { return m_showPreview ? L"CONFIRM" : L"CUSTOM"; }
-    void OnEnterStep() override;
-    static PanelDescriptor DefaultProfileDescriptor();
-    static PanelDescriptor DefaultConfirmDescriptor();
+    StepConfirm(int stepIndex, PanelConfig cfg, RegistrationData& data, bool isFinal = true);
+    std::wstring GetType() const override { return isFinal ? L"CONFIRM" : L"CUSTOM"; }
+    void OnShow() override;
+    static PanelConfig MakeProfileDefault();
+    static PanelConfig MakeConfirmDefault();
 
 protected:
-    void BuildControls() override;
+    void CreateControls() override;
 
 private:
-    bool m_showPreview = true;
-    HWND m_hPreviewLabel = nullptr;
-    HWND m_hPreviewEdit  = nullptr;
+    bool isFinal = true;
+    HWND hLbl = nullptr;
+    HWND hBox = nullptr;
 };

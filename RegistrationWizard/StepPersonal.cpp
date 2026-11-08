@@ -1,45 +1,45 @@
 #include "StepPersonal.h"
 #include <cwctype>
 
-StepPersonal::StepPersonal(int stepIndex, PanelDescriptor descriptor, RegistrationData& data)
-    : WizardStep(stepIndex, std::move(descriptor), data) {
-    if (m_descriptor.fields.empty()) {
-        m_descriptor = DefaultDescriptor();
+StepPersonal::StepPersonal(int stepIndex, PanelConfig cfg, RegistrationData& data)
+    : WizardStep(stepIndex, std::move(cfg), data) {
+    if (this->cfg.fields.empty()) {
+        this->cfg = MakeDefault();
     }
 }
 
-PanelDescriptor StepPersonal::DefaultDescriptor() {
-    PanelDescriptor pd;
-    pd.stepType = L"PERSONAL";
-    pd.title = L"Особисті дані користувача";
-    pd.fields = {
+PanelConfig StepPersonal::MakeDefault() {
+    PanelConfig cfg;
+    cfg.type = L"PERSONAL";
+    cfg.title = L"Особисті дані користувача";
+    cfg.fields = {
         { L"full_name",  L"Прізвище, Ім'я та По батькові:", L"",     false },
         { L"phone",      L"Номер телефону (+380...):",      L"+380", false },
         { L"city",       L"Місто проживання:",              L"Київ", false },
         { L"birth_date", L"Дата народження (ДД.ММ.РРРР):",  L"",     false }
     };
-    return pd;
+    return cfg;
 }
 
-bool StepPersonal::Validate(std::wstring& outError) {
-    if (!WizardStep::Validate(outError)) return false;
+bool StepPersonal::Validate(std::wstring& err) {
+    if (!WizardStep::Validate(err)) return false;
 
-    std::wstring name = GetFieldByKey(L"full_name");
-    if (!name.empty() && name.find(L' ') == std::wstring::npos) {
-        outError = L"Введіть щонайменше Прізвище та Ім'я через пробіл.";
-        FocusFieldByKey(L"full_name");
+    std::wstring str1 = GetByKey(L"full_name");
+    if (!str1.empty() && str1.find(L' ') == std::wstring::npos) {
+        err = L"Введіть Прізвище та Ім'я через пробіл.";
+        FocusKey(L"full_name");
         return false;
     }
 
-    std::wstring phone = GetFieldByKey(L"phone");
-    if (!phone.empty()) {
-        size_t digits = 0;
-        for (wchar_t ch : phone) {
-            if (std::iswdigit(ch)) ++digits;
+    std::wstring buf = GetByKey(L"phone");
+    if (!buf.empty()) {
+        int n = 0;
+        for (wchar_t ch : buf) {
+            if (std::iswdigit(ch)) ++n;
         }
-        if (digits < 10 || digits > 13) {
-            outError = L"Номер телефону має містити від 10 до 13 цифр.";
-            FocusFieldByKey(L"phone");
+        if (n < 10 || n > 13) {
+            err = L"Номер телефону має містити від 10 до 13 цифр.";
+            FocusKey(L"phone");
             return false;
         }
     }

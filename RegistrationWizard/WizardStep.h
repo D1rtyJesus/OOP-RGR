@@ -3,47 +3,44 @@
 
 class WizardStep {
 public:
-    WizardStep(int stepIndex, PanelDescriptor descriptor, RegistrationData& data);
+    WizardStep(int stepIndex, PanelConfig cfg, RegistrationData& data);
     virtual ~WizardStep();
 
-    WizardStep(const WizardStep&) = delete;
-    WizardStep& operator=(const WizardStep&) = delete;
+    bool Create(HWND hParent, HINSTANCE hInst, int x, int y, int w, int h);
+    void Show(bool vis);
 
-    bool CreateStepWindow(HWND hParent, HINSTANCE hInst, const RECT& rcBounds);
-    void Show(bool visible);
+    virtual void OnShow();
+    virtual bool Validate(std::wstring& err);
+    bool SaveStep(std::wstring& err);
 
-    virtual void OnEnterStep();
-    virtual bool Validate(std::wstring& outError);
-    bool ValidateAndSave(std::wstring& outError);
+    virtual std::wstring GetType() const = 0;
 
-    virtual std::wstring GetStepType() const = 0;
-
-    HWND GetHwnd() const { return m_hPanel; }
-    const std::wstring& GetTitle() const { return m_descriptor.title; }
+    HWND GetHwnd() const { return hWnd; }
+    const std::wstring& GetTitle() const { return cfg.title; }
 
 protected:
-    struct FieldControl {
-        FieldDescriptor meta;
-        HWND hLabel = nullptr;
-        HWND hEdit  = nullptr;
+    struct Ctrl {
+        FieldInfo info;
+        HWND hLbl = nullptr;
+        HWND hEdit = nullptr;
     };
 
-    virtual void BuildControls();
-    std::wstring GetFieldText(size_t index) const;
-    std::wstring GetFieldByKey(const std::wstring& key) const;
-    void FocusFieldByKey(const std::wstring& key) const;
-    void FocusField(size_t index) const;
+    virtual void CreateControls();
+    std::wstring GetText(size_t i) const;
+    std::wstring GetByKey(const std::wstring& key) const;
+    void FocusKey(const std::wstring& key) const;
+    void FocusIdx(size_t i) const;
 
-    int m_stepIndex;
-    PanelDescriptor m_descriptor;
-    RegistrationData& m_data;
-    HWND m_hPanel = nullptr;
-    HINSTANCE m_hInst = nullptr;
-    HFONT m_hFont = nullptr;
-    std::vector<FieldControl> m_controls;
+    int stepIndex;
+    PanelConfig cfg;
+    RegistrationData& data;
+    HWND hWnd = nullptr;
+    HINSTANCE hInst = nullptr;
+    HFONT hFont = nullptr;
+    std::vector<Ctrl> ctrls;
 
 private:
-    static LRESULT CALLBACK PanelWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
+    static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wp, LPARAM lp);
 };
 
 using Panel = WizardStep;

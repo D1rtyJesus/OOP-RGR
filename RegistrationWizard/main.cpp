@@ -2,19 +2,16 @@
 
 #pragma comment(lib, "comctl32.lib")
 
-int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
-                      _In_opt_ HINSTANCE hPrevInstance,
-                      _In_ LPWSTR lpCmdLine,
-                      _In_ int nCmdShow) {
-    UNREFERENCED_PARAMETER(hPrevInstance);
-    UNREFERENCED_PARAMETER(lpCmdLine);
+int APIENTRY wWinMain(HINSTANCE hInst, HINSTANCE hPrev, LPWSTR cmdLine, int cmdShow) {
+    (void)hPrev;
+    (void)cmdLine;
 
     INITCOMMONCONTROLSEX icc = { sizeof(INITCOMMONCONTROLSEX), ICC_STANDARD_CLASSES };
     InitCommonControlsEx(&icc);
 
-    WizardWindow app(hInstance);
-    if (!app.Initialize(nCmdShow)) {
+    WizardWindow app(hInst);
+    if (!app.Init(cmdShow)) {
         return -1;
     }
-    return app.RunMessageLoop();
+    return app.Run();
 }
